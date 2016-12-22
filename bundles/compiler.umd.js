@@ -1,5 +1,5 @@
 /**
- * @license Angular v2.4.0-6efdf84
+ * @license Angular v2.4.0
  * (c) 2010-2016 Google, Inc. https://angular.io/
  * License: MIT
  */
@@ -12,7 +12,7 @@
   /**
    * @stable
    */
-  var /** @type {?} */ VERSION = new _angular_core.Version('2.4.0-6efdf84');
+  var /** @type {?} */ VERSION = new _angular_core.Version('2.4.0');
 
   /**
    * @license
@@ -23187,12 +23187,12 @@
    * @param {?} targetStatements
    * @return {?}
    */
-  function finishView(view, targetStatements) {
+  function finishView(view, targetStatements, parentType) {
       view.afterNodes();
-      createViewTopLevelStmts(view, targetStatements);
+      createViewTopLevelStmts(view, targetStatements, parentType);
       view.nodes.forEach(function (node) {
           if (node instanceof CompileElement && node.hasEmbeddedView) {
-              finishView(node.embeddedView, targetStatements);
+              finishView(node.embeddedView, targetStatements, view.classType);
           }
       });
   }
@@ -23555,7 +23555,7 @@
    * @param {?} targetStatements
    * @return {?}
    */
-  function createViewTopLevelStmts(view, targetStatements) {
+  function createViewTopLevelStmts(view, targetStatements, parentType) {
       var /** @type {?} */ nodeDebugInfosVar = NULL_EXPR;
       if (view.genConfig.genDebugInfo) {
           nodeDebugInfosVar = variable("nodeDebugInfos_" + identifierName(view.component.type) + view.viewIndex); // fix
@@ -23585,7 +23585,7 @@
           ]))
               .toDeclStmt(importType(createIdentifier(Identifiers.RenderComponentType))));
       }
-      var /** @type {?} */ viewClass = createViewClass(view, renderCompTypeVar, nodeDebugInfosVar);
+      var /** @type {?} */ viewClass = createViewClass(view, renderCompTypeVar, nodeDebugInfosVar, parentType);
       targetStatements.push(viewClass);
   }
   /**
@@ -23620,10 +23620,10 @@
    * @param {?} nodeDebugInfosVar
    * @return {?}
    */
-  function createViewClass(view, renderCompTypeVar, nodeDebugInfosVar) {
+  function createViewClass(view, renderCompTypeVar, nodeDebugInfosVar, parentType) {
       var /** @type {?} */ viewConstructorArgs = [
           new FnParam(ViewConstructorVars.viewUtils.name, importType(createIdentifier(Identifiers.ViewUtils))),
-          new FnParam(ViewConstructorVars.parentView.name, importType(createIdentifier(Identifiers.AppView), [DYNAMIC_TYPE])),
+          new FnParam(ViewConstructorVars.parentView.name, parentType || importType(createIdentifier(Identifiers.AppView), [DYNAMIC_TYPE])),
           new FnParam(ViewConstructorVars.parentIndex.name, NUMBER_TYPE),
           new FnParam(ViewConstructorVars.parentElement.name, DYNAMIC_TYPE)
       ];
@@ -23655,13 +23655,17 @@
           generateVisitRootNodesMethod(view), generateVisitProjectableNodesMethod(view),
           generateCreateEmbeddedViewsMethod(view)
       ].filter(function (method) { return method.body.length > 0; });
+      var viewFields = [];
+      if (parentType) {
+          viewFields.push(new ClassField(ViewConstructorVars.parentView.name, parentType));
+      }
       var /** @type {?} */ superClass = view.genConfig.genDebugInfo ? Identifiers.DebugAppView : Identifiers.AppView;
       var /** @type {?} */ viewClass = createClassStmt({
           name: view.className,
           parent: importExpr(createIdentifier(superClass), [getContextType(view)]),
           parentArgs: superConstructorArgs,
           ctorParams: viewConstructorArgs,
-          builders: [{ methods: viewMethods }, view]
+          builders: [{ methods: viewMethods, fields: viewFields }, view]
       });
       return viewClass;
   }
